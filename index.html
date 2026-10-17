@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>[ AGROINCOGNITO ] - Secure Global Network</title>
-    <!-- Carga de PeerJS para conexión entre usuarios a través de Internet -->
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <!-- Librería MQTT WebSocket pública para interconectar usuarios instantáneamente -->
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=VT323&family=Share+Tech+Mono&display=swap');
 
@@ -38,7 +38,6 @@
             flex-direction: column;
         }
 
-        /* EFECTO SCANLINES */
         .scanlines {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -48,7 +47,6 @@
             z-index: 999;
         }
 
-        /* BOOT SCREEN */
         #boot-screen {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -66,10 +64,8 @@
         .boot-line {
             margin-bottom: 6px;
             text-shadow: 0 0 5px var(--green-primary);
-            word-break: break-all;
         }
 
-        /* LOBBY / LOGIN */
         #login-screen {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -140,7 +136,6 @@
             font-weight: bold;
             cursor: pointer;
             transition: all 0.2s ease;
-            margin-top: 5px;
         }
 
         .btn-connect:active {
@@ -148,7 +143,6 @@
             color: #000;
         }
 
-        /* INTERFAZ PRINCIPAL */
         #chat-app {
             display: none;
             flex: 1;
@@ -157,7 +151,6 @@
             position: relative;
         }
 
-        /* BARRA LATERAL (RESPONSIVE PARA MÓVILES) */
         .sidebar {
             width: 260px;
             background: var(--panel-bg);
@@ -228,7 +221,6 @@
             font-size: 13px;
         }
 
-        /* CONTENEDOR CHAT */
         .chat-container {
             flex: 1;
             display: flex;
@@ -260,7 +252,6 @@
             font-size: 12px;
         }
 
-        /* MENSAJES */
         .chat-messages {
             flex: 1;
             padding: 15px;
@@ -323,7 +314,6 @@
         }
         video.secure-media { pointer-events: auto; }
 
-        /* INPUT FOOTER */
         .chat-footer {
             padding: 10px 15px;
             padding-bottom: calc(10px + var(--safe-area-bottom));
@@ -372,7 +362,6 @@
             cursor: pointer;
         }
 
-        /* MEDIA QUERIES (ADAPTACIÓN CELULARES Y TABLETS) */
         @media (max-width: 768px) {
             .sidebar {
                 position: absolute;
@@ -380,18 +369,9 @@
                 transform: translateX(-100%);
                 box-shadow: 5px 0 15px rgba(0,0,0,0.8);
             }
-
-            .sidebar.active {
-                transform: translateX(0);
-            }
-
-            .toggle-sidebar-btn {
-                display: block;
-            }
-
-            .message-wrapper {
-                max-width: 90%;
-            }
+            .sidebar.active { transform: translateX(0); }
+            .toggle-sidebar-btn { display: block; }
+            .message-wrapper { max-width: 90%; }
         }
     </style>
 </head>
@@ -399,15 +379,13 @@
 
     <div class="scanlines"></div>
 
-    <!-- PANTALLA DE ARRANQUE -->
     <div id="boot-screen">
-        <div class="boot-line">[+] AGROINCOGNITO GLOBAL NETWORK v5.0</div>
-        <div class="boot-line">[+] INITIALIZING WEBRTC P2P TUNNEL...</div>
-        <div class="boot-line">[+] ZERO-LOGS EPHEMERAL MESH ACTIVE.</div>
-        <div class="boot-line" style="color: #fff; margin-top: 10px;">CARGANDO LOBBY DE CONEXIÓN...</div>
+        <div class="boot-line">[+] AGROINCOGNITO GLOBAL NETWORK v6.0</div>
+        <div class="boot-line">[+] CONNECTING TO MQTT GLOBAL BROKER...</div>
+        <div class="boot-line">[+] SECURE REAL-TIME PIPELINE ACTIVE.</div>
+        <div class="boot-line" style="color: #fff; margin-top: 10px;">CARGANDO LOBBY...</div>
     </div>
 
-    <!-- LOBBY -->
     <div id="login-screen">
         <div class="login-card">
             <h1>[ AGROINCOGNITO ]</h1>
@@ -424,7 +402,6 @@
         </div>
     </div>
 
-    <!-- INTERFAZ CHAT -->
     <div id="chat-app">
         <div class="sidebar" id="sidebar">
             <div class="sidebar-header">
@@ -434,7 +411,7 @@
                 </div>
             </div>
             <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-                <div class="members-title">NODOS CONECTADOS (<span id="member-count">1</span>)</div>
+                <div class="members-title">NODOS EN LÍNEA (<span id="member-count">1</span>)</div>
                 <div class="members-list" id="members-list"></div>
             </div>
             <button class="btn-leave" onclick="location.reload()">DESCONECTAR</button>
@@ -449,7 +426,7 @@
 
             <div class="chat-messages" id="chat-messages">
                 <div style="text-align: center; color: var(--green-dim); font-size: 11px; margin: 5px 0;">
-                    --- CONEXIÓN GLOBAL ESTABLECIDA (NADA SE GUARDA) ---
+                    --- CANAL GLOBAL EN VIVO (100% EFÍMERO) ---
                 </div>
             </div>
 
@@ -465,8 +442,8 @@
     </div>
 
     <script>
-        let peer = null;
-        let connections = {};
+        const MQTT_TOPIC = 'agroincognito/global_channel_v6';
+        let client = null;
         let currentUser = { name: '', isMaster: false };
         let activeMembers = {};
         let typingTimeout;
@@ -476,7 +453,7 @@
                 const boot = document.getElementById('boot-screen');
                 boot.style.opacity = '0';
                 setTimeout(() => boot.remove(), 400);
-            }, 1800);
+            }, 1200);
         });
 
         function toggleSidebar() {
@@ -503,60 +480,51 @@
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('chat-app').style.display = 'flex';
 
-            initializePeer();
+            connectMQTT();
         }
 
-        function initializePeer() {
-            // Usamos un ID fijo basado en la sala para conectarse automáticamente
-            const peerId = 'agroincognito_node_' + Math.random().toString(36).substring(2, 7);
-            peer = new Peer(peerId);
+        function connectMQTT() {
+            // Conexión a Broker MQTT gratuito con WebSockets seguro (WSS)
+            client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
-            peer.on('open', (id) => {
+            client.on('connect', () => {
                 document.getElementById('node-id-display').innerText = 'ONLINE';
-                activeMembers[currentUser.name] = { isMaster: currentUser.isMaster };
-                updateMembersUI();
-                connectToMesh();
+                client.subscribe(MQTT_TOPIC);
+
+                // Anunciar entrada
+                publishPacket({ type: 'PRESENCE', name: currentUser.name, isMaster: currentUser.isMaster });
+
+                // Ping periódico de presencia
+                setInterval(() => {
+                    publishPacket({ type: 'PING', name: currentUser.name, isMaster: currentUser.isMaster });
+                }, 4000);
             });
 
-            peer.on('connection', (conn) => {
-                setupConnection(conn);
-            });
-        }
-
-        function connectToMesh() {
-            // Intenta conectar automáticamente a los nodos activos mediante transmisión Broadcast local y WebRTC global
-            broadcastToAll({ type: 'JOIN', name: currentUser.name, isMaster: currentUser.isMaster });
-        }
-
-        function setupConnection(conn) {
-            connections[conn.peer] = conn;
-
-            conn.on('data', (data) => {
-                handleIncomingData(data, conn);
-            });
-
-            conn.on('close', () => {
-                delete connections[conn.peer];
-                updateMembersUI();
+            client.on('message', (topic, message) => {
+                try {
+                    const data = JSON.parse(message.toString());
+                    handleIncomingPacket(data);
+                } catch(e){}
             });
         }
 
-        function handleIncomingData(data, conn) {
-            if (data.type === 'CHAT') {
-                appendMessage(data.sender, data.text, data.media, data.mediaType, false);
-            } else if (data.type === 'TYPING') {
-                showTyping(data.sender, data.isTyping);
-            } else if (data.type === 'KICK' && data.target === currentUser.name) {
-                alert('Has sido suspendido de la red por Dark_Payload (Master).');
-                location.reload();
+        function publishPacket(data) {
+            if (client && client.connected) {
+                client.publish(MQTT_TOPIC, JSON.stringify(data));
             }
         }
 
-        function broadcastToAll(data) {
-            for (let id in connections) {
-                if (connections[id].open) {
-                    connections[id].send(data);
-                }
+        function handleIncomingPacket(data) {
+            if (data.type === 'CHAT') {
+                appendMessage(data.sender, data.text, data.media, data.mediaType, data.sender === currentUser.name);
+            } else if (data.type === 'TYPING') {
+                showTyping(data.sender, data.isTyping);
+            } else if (data.type === 'PRESENCE' || data.type === 'PING') {
+                activeMembers[data.name] = { isMaster: data.isMaster, lastSeen: Date.now() };
+                updateMembersUI();
+            } else if (data.type === 'KICK' && data.target === currentUser.name) {
+                alert('Has sido expulsado / suspendido de la red por Dark_Payload (Master).');
+                location.reload();
             }
         }
 
@@ -565,15 +533,13 @@
             const text = input.value.trim();
             if (!text) return;
 
-            appendMessage(currentUser.name, text, null, null, true);
-            broadcastToAll({ type: 'CHAT', sender: currentUser.name, text: text });
-
+            publishPacket({ type: 'CHAT', sender: currentUser.name, text: text });
             input.value = '';
             notifyTyping(false);
         }
 
         function notifyTyping(isTyping = true) {
-            broadcastToAll({ type: 'TYPING', sender: currentUser.name, isTyping: isTyping });
+            publishPacket({ type: 'TYPING', sender: currentUser.name, isTyping: isTyping });
             clearTimeout(typingTimeout);
             if (isTyping) {
                 typingTimeout = setTimeout(() => notifyTyping(false), 2000);
@@ -582,13 +548,17 @@
 
         function showTyping(sender, isTyping) {
             const indicator = document.getElementById('typing-indicator');
-            indicator.innerText = (isTyping && sender !== currentUser.name) ? `${sender} está escribiendo...` : '';
+            if (isTyping && sender !== currentUser.name) {
+                indicator.innerText = `${sender} está escribiendo...`;
+            } else if (!isTyping && sender !== currentUser.name) {
+                indicator.innerText = '';
+            }
         }
 
         function kickUser(targetName) {
             if (!currentUser.isMaster) return;
             if (confirm(`¿Expulsar nodo ${targetName}?`)) {
-                broadcastToAll({ type: 'KICK', target: targetName });
+                publishPacket({ type: 'KICK', target: targetName });
                 delete activeMembers[targetName];
                 updateMembersUI();
             }
@@ -598,10 +568,15 @@
             const list = document.getElementById('members-list');
             list.innerHTML = '';
             let count = 0;
-
-            activeMembers[currentUser.name] = { isMaster: currentUser.isMaster };
+            const now = Date.now();
 
             for (let name in activeMembers) {
+                // Elimina usuarios inactivos tras 10 segundos
+                if (now - activeMembers[name].lastSeen > 10000 && name !== currentUser.name) {
+                    delete activeMembers[name];
+                    continue;
+                }
+
                 count++;
                 const item = document.createElement('div');
                 item.className = 'member-item';
@@ -625,9 +600,7 @@
             reader.onload = function(e) {
                 const mediaData = e.target.result;
                 const mediaType = file.type.startsWith('image') ? 'image' : 'video';
-
-                appendMessage(currentUser.name, `[Multimedia: ${file.name}]`, mediaData, mediaType, true);
-                broadcastToAll({ type: 'CHAT', sender: currentUser.name, text: `[Multimedia: ${file.name}]`, media: mediaData, mediaType: mediaType });
+                publishPacket({ type: 'CHAT', sender: currentUser.name, text: `[Multimedia: ${file.name}]`, media: mediaData, mediaType: mediaType });
             };
             reader.readAsDataURL(file);
         }
